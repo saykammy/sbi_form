@@ -95,6 +95,20 @@ table.dt tr:hover td{background:var(--mist)}
 .mnav-item{flex-shrink:0;font-size:12px;font-weight:600;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--txt2);white-space:nowrap}
 .mnav-item.active{background:var(--ink);color:#fff;border-color:var(--ink)}
 .empty{padding:26px;text-align:center;color:#9aa3b2;font-size:12px}
+.tourdock{position:fixed;right:16px;bottom:16px;z-index:45;width:340px;max-width:calc(100vw - 32px);background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 16px 48px rgba(11,27,51,.22);display:none;overflow:hidden}
+.tourdock.show{display:block}
+.tourdock-head{background:linear-gradient(135deg,var(--brand),var(--violet));padding:12px 14px;display:flex;align-items:center;gap:8px;color:#fff}
+.tourdock-head .tstep{font-size:11px;font-weight:700;background:rgba(255,255,255,.2);padding:3px 9px;border-radius:999px}
+.tourdock-head .tclose{margin-left:auto;color:rgba(255,255,255,.85);font-size:18px;line-height:1;cursor:pointer;background:none;border:none}
+.tourdock-body{padding:14px 16px;max-height:42vh;overflow-y:auto}
+.tourdock-body .ttitle{font-weight:700;font-size:14.5px;color:var(--ink);margin-bottom:6px}
+.tourdock-body .ttext{font-size:13px;color:var(--txt2);line-height:1.55}
+.tourdock-foot{padding:10px 14px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center}
+.tourdock-foot .tprog{flex:1;height:4px;background:var(--mist);border-radius:99px;overflow:hidden}
+.tourdock-foot .tprog-fill{height:100%;background:var(--brand);border-radius:99px}
+.tourmin{display:none;position:fixed;right:16px;bottom:16px;z-index:45;background:linear-gradient(135deg,var(--brand),var(--violet));color:#fff;font-size:12.5px;font-weight:600;padding:11px 16px;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.25);align-items:center;gap:8px;border:none;cursor:pointer}
+.tourmin.show{display:flex}
+@media(max-width:1100px){.tourdock{left:12px;right:12px;width:auto;bottom:64px}}
 .lastresult{background:#fff;border:1px solid var(--line);border-left:3px solid var(--teal);border-radius:10px;padding:10px 14px;margin-bottom:16px;display:none;align-items:center;gap:10px;font-size:13px}
 .lastresult.show{display:flex}
 .lastresult .lr-ic{width:22px;height:22px;border-radius:50%;background:rgba(14,156,125,.15);color:var(--teal);display:grid;place-items:center;flex-shrink:0;font-size:12px}
@@ -130,6 +144,16 @@ table.dt tr:hover td{background:var(--mist)}
 <button class="trailfab" onclick="toggleTrail()">≡ Activity <span class="badge" id="fabBadge">0</span></button>
 <div class="modal" id="modal"><div class="backdrop" onclick="closeModal()"></div><div class="modal-box" id="modalBox"></div></div>
 <div class="toast" id="toast"><span class="dot"></span><span id="toastMsg"></span></div>
+<div class="tourdock" id="tourdock">
+  <div class="tourdock-head"><span class="tstep" id="tourStepLabel">Step 1 of 33</span><button class="tclose" onclick="minimizeTour()" title="Minimize">‒</button><button class="tclose" onclick="closeTour()" title="Close">✕</button></div>
+  <div class="tourdock-body"><div class="ttitle" id="tourTitle"></div><div class="ttext" id="tourText"></div></div>
+  <div class="tourdock-foot">
+    <button class="btn btn-soft btn-sm" id="tourBackBtn" onclick="tourStep(-1)">← Back</button>
+    <div class="tprog"><div class="tprog-fill" id="tourProg"></div></div>
+    <button class="btn btn-brand btn-sm" id="tourNextBtn" onclick="tourStep(1)">Next →</button>
+  </div>
+</div>
+<button class="tourmin" id="tourMin" onclick="reopenTour()">▶ Resume walkthrough <span id="tourMinBadge"></span></button>
 <script>
 const fmt=n=>'₹'+Math.round(n).toLocaleString('en-IN');
 const state={
@@ -590,16 +614,69 @@ function createInvoice(){
 }
 function doLookup(){const v=(document.getElementById('lookupVal').value||'').toLowerCase();const t=state.txns.find(x=>x.id.toLowerCase().indexOf(v)>=0||x.cust.toLowerCase().indexOf(v)>=0)||state.txns[3];const m=M(t.mid);const tk=state.tickets.find(x=>x.txn===t.id);document.getElementById('lookupResult').innerHTML=`<div class="card" style="background:var(--mist)"><div style="display:flex;justify-content:space-between"><span class="mono" style="font-size:12px">${t.id}</span>${pill(t.state)}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;font-size:12.5px">${[['Customer',t.cust],['Merchant',m?m.name:'—'],['Amount',fmt(t.amt)],['Service',t.svc],['Linked ticket',tk?tk.id:'none']].map(r=>`<div><span class="c-mut">${r[0]}: </span><b>${r[1]}</b></div>`).join('')}</div></div>`;log('Support lookup','found '+t.id,'')}
 const TOUR=[
- ['customer','c_dispute','① Customer raises a dispute','A customer who did not receive their order fills this form. Submitting creates a ticket and starts a 24-hour clock for the merchant. Click <b>Submit dispute</b>, then press Next.'],
- ['support','s_queue','② Support sees the new ticket','The ticket you just created now appears in the Support queue, prioritised by SLA. Every role that needs to act can see it. Press Next.'],
- ['merchant','m_disputes','③ Merchant must respond','On the merchant side the same dispute shows a respond-by deadline. Ignored for 24h, the amount is auto-held. Open <b>Respond</b> and reject to escalate — or press Next.'],
- ['admin','disputes','④ Admin arbitrates','Unresolved disputes land with Haodapay. Click <b>Manage</b> and choose Approve refund / Hold funds / Reject. Watch the Activity Trail on the right record the result. Press Next.'],
- ['admin','settlement','⑤ Settlement pays the merchant','Now settle a merchant: the row shows Collected − Refunds − Chargebacks − MDF = Net. Click <b>Settle</b>, send the OTP, enter any 6 digits, approve. A UTR is generated. Press Next.'],
- ['merchant','m_settlements','⑥ Merchant sees the payout','The payout you just made appears here with its UTR — the money traced all the way through. Every step was logged in the Activity Trail. Tour complete!'],
+ // ADMIN (9)
+ ['admin','overview','Admin · Merchant Board','Your home base. Every onboarded merchant in one list, with quick actions — View, Collections, Settle, KYC, MDR — so you can act on any merchant at any time. The five core processes (onboarding, collection, reconciliation, settlement, disputes) run in parallel, not in sequence, which is why this page has no step-by-step bar.'],
+ ['admin','collections','Admin · VAN Collections','Every payment received into a merchant\'s Short VAN, filterable by merchant and date. This is the raw money-in feed that reconciliation and settlement both draw from.'],
+ ['admin','reconcile','Admin · Reconciliation','The matching workspace. Create a bill, then match it against a VAN receipt — one bill to one payment, many bills to one payment, or a brand-new bill against an older payment. Amounts can be edited (with a reason, logged) only until they\'re matched — after that they lock permanently.'],
+ ['admin','settlement','Admin · Settlement Pipeline','Shows every settlement\'s individual status — Queued, Processing, Done — and the "Ready to settle now" table where you trigger a payout: Collected → −Refunds −Chargebacks → −MDR → −GST on MDR → Final amount, with 2FA and a generated UTR.'],
+ ['admin','mdf','Admin · MDF / MDR Config','Set a platform-wide default fee rate, apply it to all merchants at once, or edit one merchant\'s rate individually. Any change notifies that merchant. The fee is always deducted at settlement — never at the moment of collection.'],
+ ['admin','merchants','Admin · Merchants & KYC','The master merchant record — VAN, KYC status, risk grade, settlement account, fee rate. Flagged merchants are marked here too, and you can deactivate or reactivate directly from this list.'],
+ ['admin','disputes','Admin · Disputes & Holds','Every dispute, split into three working queues: L1 tickets still with the merchant, tickets flagged "No Response" needing escalation, and L2 tickets under Haodapay\'s own 48-hour review — plus a full historical log of how each one was resolved.'],
+ ['admin','escalation','Admin · Escalation Matrix','The rulebook: how a dispute moves from the merchant (L1) to Haodapay (L2) if there\'s no response in 24 hours, what the 48-hour L2 SLA is, and how a customer can reopen a denied ticket.'],
+ ['admin','reports','Admin · Reports','Exportable reference reports — settlements, chargebacks, MDF revenue, VAN MIS, bank reconciliation, GST, audit trail — for finance and for SBI reconciliation meetings.'],
+ // MERCHANT (7)
+ ['merchant','m_overview','Merchant · Dashboard','What the merchant sees: how much has been collected, what\'s available to settle, what\'s on hold, and a full reconciliation breakdown of their own VAN.'],
+ ['merchant','m_collections','Merchant · Collections','Every payment that has landed in this merchant\'s Short VAN, listed by customer — their own copy of the collections feed.'],
+ ['merchant','m_invoices','Merchant · Invoices & GST','Every bill raised against this merchant\'s customers, searchable by customer name, invoice ID or transaction ID, with GST collected month-to-date and a GSTR-1 export.'],
+ ['merchant','m_settlements','Merchant · Settlement Invoices','Every settlement shown as a full itemised invoice — amount received, refunds, chargebacks, MDR, GST on MDR, and the final amount paid — with the UTR and a downloadable proof.'],
+ ['merchant','m_disputes','Merchant · Disputes & Holds','Tickets needing a response, tickets already held for no response, tickets with Haodapay at L2, and closed history. This is also where the merchant approves a refund or denies with proof within the 24-hour window.'],
+ ['merchant','m_notifications','Merchant · Notifications','Every fee change, settlement, and dispute outcome that affects this merchant lands here — so nothing happens to their account silently.'],
+ ['merchant','m_account','Merchant · Settlement Account','The bank account Haodapay pays out to, penny-drop verified, plus the merchant\'s preferred payout mode (NEFT / RTGS / IMPS).'],
+ // CUSTOMER (3)
+ ['customer','c_overview','Customer · My Payments','The customer\'s own payment history across every merchant they\'ve paid through Haodapay, with a direct link to raise a dispute on any transaction.'],
+ ['customer','c_dispute','Customer · Raise a Dispute','The grievance form — transaction, amount, contact details, dispute type and reason. Submitting this starts the merchant\'s 24-hour response clock.'],
+ ['customer','c_tickets','Customer · My Tickets','Every dispute the customer has raised, its current status, the latest message — and the ability to cancel a ticket at any time, reopen one that was denied, or message the merchant/Haodapay directly.'],
+ // SUPPORT (3)
+ ['support','s_queue','Support · Ticket Queue','Tickets flagged "No Response" are surfaced first — these are the ones that need escalating to Haodapay\'s L2 review — followed by every other open ticket across all merchants.'],
+ ['support','s_escalation','Support · Escalation Desk','The same escalation matrix shown to Admin, so Support follows the identical rules for when and how to escalate.'],
+ ['support','s_lookup','Support · Txn Lookup','A quick search across transaction ID, VAN, phone, email or customer name — useful when a customer calls in without their dispute ID handy.'],
+ // COMPLIANCE (4)
+ ['compliance','cp_overview','Compliance · Risk Overview','A snapshot of flagged merchants, deactivated accounts, how many AML rules are currently active, and SARs filed — the first place Compliance checks each day.'],
+ ['compliance','cp_review','Compliance · Merchant Review Queue','Where flagged merchants are actually worked: see why they were flagged, add review notes, hold their settlement with a mandatory reason, clear the flag, or deactivate the account — every action requires a documented reason.'],
+ ['compliance','cp_rules','Compliance · AML/STR Rule Settings','The ten common high-risk conditions that can auto-flag a merchant — structuring, velocity spikes, sanctions/PEP matches, and more — each one toggleable on or off.'],
+ ['compliance','cp_monitor','Compliance · Txn Monitoring','Every transaction scored for risk in real time, so unusual activity is visible before it becomes a problem.'],
+ // KYC (2)
+ ['kyc','k_queue','KYC · Review Queue','Merchant documents waiting for verification — PAN, Aadhaar, GST, bank proof — approved or queried here before a merchant is allowed to go live.'],
+ ['kyc','k_expiry','KYC · Expiry Tracker','Documents and re-verifications coming due, so nothing lapses silently.'],
+ // AUDITOR (2)
+ ['auditor','a_trail','Auditor · Audit Log','An immutable, timestamped record of every action taken anywhere in the platform — settlements, fee changes, dispute decisions — retained for 7 years.'],
+ ['auditor','a_recon','Auditor · Bank Reconciliation','Haodapay\'s own ledger checked line-by-line against the SBI bank statement, so every settlement and collection ties out exactly.'],
+ // ACCOUNTANT (3)
+ ['accountant','ac_pnl','Accountant · P&L Summary','Haodapay\'s own profit picture — MDF fee income against chargeback losses — separate from any individual merchant\'s numbers.'],
+ ['accountant','ac_gl','Accountant · General Ledger','Auto-posted journal entries for every collection and settlement, ready for books-of-account.'],
+ ['accountant','ac_tax','Accountant · GST & Tax','GST charged on Haodapay\'s own MDF fee, kept separate from the GST merchants charge their own customers, with a tax-pack export.'],
 ];
-let tourIx=0;
-function startTour(){tourIx=0;showTour()}
-function showTour(){const tt=TOUR[tourIx];setRole(tt[0]);go(tt[1]);openModal(`<div style="padding:22px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span class="pill p-violet">Step ${tourIx+1} of ${TOUR.length}</span><button onclick="closeModal()" style="font-size:20px;color:#9aa3b2">✕</button></div><div style="font-weight:700;font-size:17px;margin-bottom:8px">${tt[2]}</div><div style="font-size:13.5px;color:var(--txt2);line-height:1.6">${tt[3]}</div><div style="display:flex;gap:8px;margin-top:18px">${tourIx>0?'<button class="btn btn-soft" onclick="tourIx--;showTour()">← Back</button>':''}<button class="btn btn-soft" onclick="closeModal()">Explore freely</button>${tourIx<TOUR.length-1?'<button class="btn btn-brand" style="margin-left:auto" onclick="tourIx++;showTour()">Next →</button>':'<button class="btn btn-dark" style="margin-left:auto" onclick="closeModal()">Done</button>'}</div></div>`)}
+let tourIx=0,tourActive=false;
+function startTour(){tourIx=0;tourActive=true;showTour();}
+function reopenTour(){tourActive=true;showTour();}
+function showTour(){
+  const tt=TOUR[tourIx];setRole(tt[0]);go(tt[1]);
+  document.getElementById('tourdock').classList.add('show');
+  document.getElementById('tourMin').classList.remove('show');
+  document.getElementById('tourStepLabel').textContent='Step '+(tourIx+1)+' of '+TOUR.length;
+  document.getElementById('tourTitle').textContent=tt[2];
+  document.getElementById('tourText').innerHTML=tt[3];
+  document.getElementById('tourProg').style.width=Math.round(((tourIx+1)/TOUR.length)*100)+'%';
+  document.getElementById('tourBackBtn').style.visibility=tourIx>0?'visible':'hidden';
+  const nextBtn=document.getElementById('tourNextBtn');
+  nextBtn.textContent=tourIx<TOUR.length-1?'Next →':'Finish ✓';
+}
+function tourStep(d){
+  if(d>0&&tourIx>=TOUR.length-1){closeTour();toast('Walkthrough complete — every page covered');return}
+  tourIx=Math.max(0,Math.min(TOUR.length-1,tourIx+d));showTour();
+}
+function minimizeTour(){document.getElementById('tourdock').classList.remove('show');const mb=document.getElementById('tourMin');mb.classList.add('show');document.getElementById('tourMinBadge').textContent='('+(tourIx+1)+'/'+TOUR.length+')';}
+function closeTour(){tourActive=false;document.getElementById('tourdock').classList.remove('show');document.getElementById('tourMin').classList.remove('show');}
 renderTop();renderNav();render();renderTrail();
 log('Console ready','Press “Guided walkthrough” to trace a payment end to end','sys');
 </script>
